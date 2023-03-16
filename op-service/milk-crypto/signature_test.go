@@ -9,7 +9,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/go-algorand-sdk/types"
-	"github.com/ethereum-optimism/optimism/op-service/milk-algo"
+	algo "github.com/ethereum-optimism/optimism/op-service/milk-algo"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -22,8 +22,8 @@ func TestPkSigner(t *testing.T) {
 
 	signer, addr, _ := CreateSignerFn(hex.EncodeToString(account.PrivateKey))
 	if addr != account.Address.String() {
-        t.Fatalf(`Did not recover signer address (%s vs %s)`, addr, account.Address)
-    }
+		t.Fatalf(`Did not recover signer address (%s vs %s)`, addr, account.Address)
+	}
 
 	signed, _ := signer(tx)
 

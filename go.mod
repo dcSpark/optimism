@@ -3,6 +3,7 @@ module github.com/ethereum-optimism/optimism
 go 1.19
 
 require (
+	github.com/algorand/go-algorand-sdk v1.24.0
 	github.com/btcsuite/btcd v0.23.3
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0
@@ -44,7 +45,6 @@ require (
 	github.com/Microsoft/go-winio v0.6.0 // indirect
 	github.com/VictoriaMetrics/fastcache v1.10.0 // indirect
 	github.com/algorand/avm-abi v0.2.0 // indirect
-	github.com/algorand/go-algorand-sdk v1.24.0 // indirect
 	github.com/algorand/go-codec/codec v1.1.9 // indirect
 	github.com/allegro/bigcache v1.2.1 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect

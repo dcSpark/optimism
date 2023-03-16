@@ -23,8 +23,8 @@ import (
 )
 
 type SignedTxn struct {
-    Txid string
-    Txn types.Transaction
+	Txid   string
+	Txn    types.Transaction
 	RawTxn []byte
 }
 
@@ -48,8 +48,8 @@ func CreateSignerFn(privateKey string) (fn SignerFn, address string, err error) 
 			return nil, err
 		}
 		res := &SignedTxn{
-			Txid: txid,
-			Txn: txn,
+			Txid:   txid,
+			Txn:    txn,
 			RawTxn: rawTxn,
 		}
 		return res, nil
