@@ -11,11 +11,12 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
-	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/algorand/go-algorand-sdk/client/v2/common/models"
+	"github.com/ethereum-optimism/optimism/op-node/algo"
+	opcrypto "github.com/ethereum-optimism/optimism/op-service/milk-crypto"
+	"github.com/ethereum-optimism/optimism/op-service/milk-txmgr"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -49,7 +50,7 @@ func NewBatchSubmitterFromCLIConfig(cfg CLIConfig, l log.Logger, m metrics.Metri
 
 	// Connect to L1 and L2 providers. Perform these last since they are the
 	// most expensive.
-	l1Client, err := dialEthClientWithTimeout(ctx, cfg.L1EthRpc)
+	l1Client, err := txmgr.NewAlgodClient(cfg.L1AlgodRpc, cfg.L1AlgodToken)
 	if err != nil {
 		return nil, err
 	}
@@ -106,13 +107,13 @@ func NewBatchSubmitterFromCLIConfig(cfg CLIConfig, l log.Logger, m metrics.Metri
 // NewBatchSubmitter initializes the BatchSubmitter, gathering any resources
 // that will be needed during operation.
 func NewBatchSubmitter(ctx context.Context, cfg Config, l log.Logger, m metrics.Metricer) (*BatchSubmitter, error) {
-	balance, err := cfg.L1Client.BalanceAt(ctx, cfg.TxManager.From(), nil)
+	accInfo, err := cfg.L1Client.AccountInformation(ctx, cfg.From)
 	if err != nil {
 		return nil, err
 	}
 
 	cfg.log = l
-	cfg.log.Info("creating batch submitter", "submitter_addr", cfg.TxManager.From(), "submitter_bal", balance)
+	cfg.log.Info("creating batch submitter", "submitter_addr", cfg.TxManager.From(), "submitter_bal", accInfo.Amount)
 
 	cfg.metr = m
 
@@ -243,16 +244,16 @@ func (l *BatchSubmitter) loadBlockIntoState(ctx context.Context, blockNumber uin
 
 // calculateL2BlockRangeToStore determines the range (start,end] that should be loaded into the local state.
 // It also takes care of initializing some local state (i.e. will modify l.lastStoredBlock in certain conditions)
-func (l *BatchSubmitter) calculateL2BlockRangeToStore(ctx context.Context) (eth.BlockID, eth.BlockID, error) {
+func (l *BatchSubmitter) calculateL2BlockRangeToStore(ctx context.Context) (algo.BlockID, algo.BlockID, error) {
 	ctx, cancel := context.WithTimeout(ctx, l.NetworkTimeout)
 	defer cancel()
 	syncStatus, err := l.RollupNode.SyncStatus(ctx)
 	// Ensure that we have the sync status
 	if err != nil {
-		return eth.BlockID{}, eth.BlockID{}, fmt.Errorf("failed to get sync status: %w", err)
+		return algo.BlockID{}, algo.BlockID{}, fmt.Errorf("failed to get sync status: %w", err)
 	}
-	if syncStatus.HeadL1 == (eth.L1BlockRef{}) {
-		return eth.BlockID{}, eth.BlockID{}, errors.New("empty sync status")
+	if syncStatus.HeadL1 == (algo.L1BlockRef{}) {
+		return algo.BlockID{}, algo.BlockID{}, errors.New("empty sync status")
 	}
 
 	// Check last stored to see if it needs to be set on startup OR set if is lagged behind.
@@ -267,7 +268,7 @@ func (l *BatchSubmitter) calculateL2BlockRangeToStore(ctx context.Context) (eth.
 
 	// Check if we should even attempt to load any blocks. TODO: May not need this check
 	if syncStatus.SafeL2.Number >= syncStatus.UnsafeL2.Number {
-		return eth.BlockID{}, eth.BlockID{}, errors.New("L2 safe head ahead of L2 unsafe head")
+		return algo.BlockID{}, algo.BlockID{}, errors.New("L2 safe head ahead of L2 unsafe head")
 	}
 
 	return l.lastStoredBlock, syncStatus.UnsafeL2.ID(), nil
@@ -421,20 +422,20 @@ func (l *BatchSubmitter) recordFailedTx(id txID, err error) {
 	l.state.TxFailed(id)
 }
 
-func (l *BatchSubmitter) recordConfirmedTx(id txID, receipt *types.Receipt) {
-	l.log.Info("Transaction confirmed", "tx_hash", receipt.TxHash, "status", receipt.Status, "block_hash", receipt.BlockHash, "block_number", receipt.BlockNumber)
-	l1block := eth.BlockID{Number: receipt.BlockNumber.Uint64(), Hash: receipt.BlockHash}
+func (l *BatchSubmitter) recordConfirmedTx(id txID, confirmation *models.PendingTransactionInfoResponse) {
+	l.log.Info("Transaction confirmed", "tx_hash", confirmation.TxHash, "confirmed_round", confirmation.ConfirmedRound)
+	l1block := algo.BlockID{Number: confirmation.ConfirmedRound}
 	l.state.TxConfirmed(id, l1block)
 }
 
 // l1Tip gets the current L1 tip as a L1BlockRef. The passed context is assumed
 // to be a lifetime context, so it is internally wrapped with a network timeout.
-func (l *BatchSubmitter) l1Tip(ctx context.Context) (eth.L1BlockRef, error) {
+func (l *BatchSubmitter) l1Tip(ctx context.Context) (algo.L1BlockRef, error) {
 	tctx, cancel := context.WithTimeout(ctx, l.NetworkTimeout)
 	defer cancel()
-	head, err := l.L1Client.HeaderByNumber(tctx, nil)
+	head, err := l.L1Client.HeaderByNumber(tctx, 0)
 	if err != nil {
-		return eth.L1BlockRef{}, fmt.Errorf("getting latest L1 block: %w", err)
+		return algo.L1BlockRef{}, fmt.Errorf("getting latest L1 block: %w", err)
 	}
-	return eth.InfoToL1BlockRef(eth.HeaderBlockInfo(head)), nil
+	return head, nil
 }

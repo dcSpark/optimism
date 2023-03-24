@@ -27,8 +27,9 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/client/v2/common/models"
 	"github.com/algorand/go-algorand-sdk/crypto"
+	"github.com/algorand/go-algorand-sdk/types"
+	algo "github.com/ethereum-optimism/optimism/op-node/algo"
 	"github.com/ethereum-optimism/optimism/op-node/testlog"
-	algo "github.com/ethereum-optimism/optimism/op-service/milk-algo"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/milk-crypto"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -137,6 +138,18 @@ func (b *mockBackend) SendTransaction(ctx context.Context, tx *opcrypto.SignedTx
 		panic("set sender function was not set")
 	}
 	return b.send(ctx, tx)
+}
+
+func (b *mockBackend) AccountInformation(ctx context.Context, address string) (models.Account, error) {
+	panic("AccountInformation not implemented on mock backend")
+}
+
+func (b *mockBackend) HeaderByNumber(ctx context.Context, round uint64) (algo.L1BlockRef, error) {
+	panic("HeaderByNumber not implemented on mock backend")
+}
+
+func (b *mockBackend) SuggestedParams(ctx context.Context) (types.SuggestedParams, error) {
+	panic("SuggestedParams not implemented on mock backend")
 }
 
 func TestTxMgrConfirmAtMinFee(t *testing.T) {

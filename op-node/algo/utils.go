@@ -1,8 +1,3 @@
-/*
-	MILKOMEDA TO OP-STACK MIGRATION NOTES
-
-This is a new package containing various Algorand utils. May get refactored later.
-*/
 package algo
 
 import (

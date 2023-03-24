@@ -9,7 +9,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/go-algorand-sdk/types"
-	algo "github.com/ethereum-optimism/optimism/op-service/milk-algo"
+	algo "github.com/ethereum-optimism/optimism/op-node/algo"
 
 	"github.com/stretchr/testify/assert"
 )

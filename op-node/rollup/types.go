@@ -79,7 +79,7 @@ type Config struct {
 	// and required to be the same network-wide to stay in consensus.
 
 	// L1 address that batches are sent to.
-	BatchInboxAddress common.Address `json:"batch_inbox_address"`
+	BatchInboxAddress string `json:"batch_inbox_address"`
 	// L1 Deposit Contract Address
 	DepositContractAddress common.Address `json:"deposit_contract_address"`
 	// L1 System Config Address

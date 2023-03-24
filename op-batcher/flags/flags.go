@@ -18,11 +18,19 @@ import (
 const envVarPrefix = "OP_BATCHER"
 
 var (
-	// Required flags
-	L1EthRpcFlag = cli.StringFlag{
-		Name:   "l1-eth-rpc",
-		Usage:  "HTTP provider URL for L1",
-		EnvVar: opservice.PrefixEnvVar(envVarPrefix, "L1_ETH_RPC"),
+	/* Required flags */
+
+	L1AlgodRpcFlag = cli.StringFlag{
+		Name:     "l1-algod-rpc",
+		Usage:    "HTTP provider URL for L1",
+		Required: true,
+		EnvVar:   opservice.PrefixEnvVar(envVarPrefix, "L1_ALGOD_RPC"),
+	}
+	L1AlgodTokenFlag = cli.StringFlag{
+		Name: "l1-algod-token",
+		Usage: "Access token for L1 RPC endpoint",
+		Required: true,
+		EnvVar: opservice.PrefixEnvVar(envVarPrefix, "L1_ALGOD_TOKEN"),
 	}
 	L2EthRpcFlag = cli.StringFlag{
 		Name:   "l2-eth-rpc",
@@ -95,7 +103,8 @@ var (
 )
 
 var requiredFlags = []cli.Flag{
-	L1EthRpcFlag,
+	L1AlgodRpcFlag,
+	L1AlgodTokenFlag,
 	L2EthRpcFlag,
 	RollupRpcFlag,
 }

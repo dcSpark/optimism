@@ -19,6 +19,7 @@ package txmgr
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"sync"
@@ -26,8 +27,10 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/client/v2/common/models"
+	"github.com/algorand/go-algorand-sdk/types"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum-optimism/optimism/op-node/algo"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/milk-crypto"
 )
 
@@ -44,6 +47,11 @@ type Config struct {
 	// will query the backend to check for confirmations after a tx
 	// has been published.
 	ConfirmationQueryInterval time.Duration
+
+	// Signer can be used to sign a new transaction with increased fee
+	// if network is recognized as congested (not implemented currently).
+	Signer opcrypto.SignerFn
+	From   string
 }
 
 // AlgoBackend is the set of methods the transaction manager uses to
@@ -55,6 +63,16 @@ type AlgoBackend interface {
 
 	// SendTransaction submits a signed transaction to L1.
 	SendTransaction(ctx context.Context, tx *opcrypto.SignedTxn) (txid string, err error)
+
+	// AccountInformation retrieves account information for given address.
+	AccountInformation(ctx context.Context, address string) (models.Account, error)
+
+	// HeaderByNumber retrieves block header for given round, latest round if unspecified
+    HeaderByNumber(ctx context.Context, round uint64) (algo.L1BlockRef, error)
+
+	// SuggestedParams returns params suggested for transaction building in the current
+	// network situation.
+	SuggestedParams(ctx context.Context) (types.SuggestedParams, error)
 }
 
 // AlgodClient is an implementation of AlgoBackend and a thin wrapper over
@@ -77,6 +95,41 @@ func (c *AlgodClient) PendingTransactionInformation(ctx context.Context, txid st
 		return nil, err
 	}
 	return &info, nil
+}
+
+func (c *AlgodClient) AccountInformation(ctx context.Context, address string) (models.Account, error) {
+	return c.client.AccountInformation(address).Do(ctx)
+}
+
+func (c *AlgodClient) SuggestedParams(ctx context.Context) (types.SuggestedParams, error) {
+	return c.client.SuggestedParams().Do(ctx)
+}
+
+func (c *AlgodClient) HeaderByNumber(ctx context.Context, round uint64) (algo.L1BlockRef, error) {
+	if round == 0 {
+		status, err := c.client.Status().Do(ctx)
+		if err != nil {
+			return algo.L1BlockRef{}, err
+		}
+		round = status.LastRound
+	}
+	block, err := c.client.Block(round).Do(ctx)
+	if err != nil {
+		return algo.L1BlockRef{}, err
+	}
+	// TODO it seems we need to make a separate query on Algorand to get block hash.
+	// Reason is unknown. We should be able to recompute blockhash from the block
+	// query result however and spare one query.
+	blockhash, err := c.client.GetBlockHash(round).Do(ctx)
+	if err != nil {
+		return algo.L1BlockRef{}, err
+	}
+	return algo.L1BlockRef{
+		Hash: blockhash.Blockhash,
+		Number: uint64(block.Round),
+		ParentHash: base64.StdEncoding.EncodeToString(block.Branch[:]),
+		Time: uint64(block.TimeStamp),
+	}, nil
 }
 
 func (c *AlgodClient) SendTransaction(ctx context.Context, tx *opcrypto.SignedTxn) (txid string, err error) {

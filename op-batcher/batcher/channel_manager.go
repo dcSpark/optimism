@@ -6,8 +6,7 @@ import (
 	"io"
 	"math"
 
-	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
-	"github.com/ethereum-optimism/optimism/op-node/eth"
+	"github.com/ethereum-optimism/optimism/op-node/algo"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -40,7 +39,7 @@ type channelManager struct {
 	// Set of unconfirmed txID -> frame data. For tx resubmission
 	pendingTransactions map[txID]txData
 	// Set of confirmed txID -> inclusion block. For determining if the channel is timed out
-	confirmedTransactions map[txID]eth.BlockID
+	confirmedTransactions map[txID]algo.BlockID
 
 	// if set to true, prevents production of any new channel frames
 	closed bool
@@ -48,12 +47,11 @@ type channelManager struct {
 
 func NewChannelManager(log log.Logger, metr metrics.Metricer, cfg ChannelConfig) *channelManager {
 	return &channelManager{
-		log:  log,
-		metr: metr,
-		cfg:  cfg,
-
-		pendingTransactions:   make(map[txID]txData),
-		confirmedTransactions: make(map[txID]eth.BlockID),
+		log:                   log,
+		metr:				   metr,
+		cfg:                   cfg,
+		pendingTransactions:   make(map[txID][]byte),
+		confirmedTransactions: make(map[txID]algo.BlockID),
 	}
 }
 
@@ -92,9 +90,9 @@ func (s *channelManager) TxFailed(id txID) {
 // a channel have been marked as confirmed on L1 the channel may be invalid & need to be
 // resubmitted.
 // This function may reset the pending channel if the pending channel has timed out.
-func (s *channelManager) TxConfirmed(id txID, inclusionBlock eth.BlockID) {
-	s.metr.RecordBatchTxSubmitted()
-	s.log.Debug("marked transaction as confirmed", "id", id, "block", inclusionBlock)
+func (s *channelManager) TxConfirmed(id txID, inclusionBlock algo.BlockID) {
+    s.metr.RecordBatchTxSubmitted()
+	s.log.Trace("marked transaction as confirmed", "id", id, "block", inclusionBlock)
 	if _, ok := s.pendingTransactions[id]; !ok {
 		s.log.Warn("unknown transaction marked as confirmed", "id", id, "block", inclusionBlock)
 		// TODO: This can occur if we clear the channel while there are still pending transactions
@@ -125,8 +123,8 @@ func (s *channelManager) TxConfirmed(id txID, inclusionBlock eth.BlockID) {
 // TODO: Create separate "pending" state
 func (s *channelManager) clearPendingChannel() {
 	s.pendingChannel = nil
-	s.pendingTransactions = make(map[txID]txData)
-	s.confirmedTransactions = make(map[txID]eth.BlockID)
+	s.pendingTransactions = make(map[txID][]byte)
+	s.confirmedTransactions = make(map[txID]algo.BlockID)
 }
 
 // pendingChannelIsTimedOut returns true if submitted channel has timed out.
@@ -183,7 +181,7 @@ func (s *channelManager) nextTxData() (txData, error) {
 // It currently only uses one frame per transaction. If the pending channel is
 // full, it only returns the remaining frames of this channel until it got
 // successfully fully sent to L1. It returns io.EOF if there's no pending frame.
-func (s *channelManager) TxData(l1Head eth.BlockID) (txData, error) {
+func (s *channelManager) TxData(l1Head algo.BlockID) ([]byte, txID, error) {
 	dataPending := s.pendingChannel != nil && s.pendingChannel.HasFrame()
 	s.log.Debug("Requested tx data", "l1Head", l1Head, "data_pending", dataPending, "blocks_pending", len(s.blocks))
 
@@ -224,7 +222,7 @@ func (s *channelManager) TxData(l1Head eth.BlockID) (txData, error) {
 	return s.nextTxData()
 }
 
-func (s *channelManager) ensurePendingChannel(l1Head eth.BlockID) error {
+func (s *channelManager) ensurePendingChannel(l1Head algo.BlockID) error {
 	if s.pendingChannel != nil {
 		return nil
 	}
@@ -244,7 +242,7 @@ func (s *channelManager) ensurePendingChannel(l1Head eth.BlockID) error {
 }
 
 // registerL1Block registers the given block at the pending channel.
-func (s *channelManager) registerL1Block(l1Head eth.BlockID) {
+func (s *channelManager) registerL1Block(l1Head algo.BlockID) {
 	s.pendingChannel.RegisterL1Block(l1Head.Number)
 	s.log.Debug("new L1-block registered at channel builder",
 		"l1Head", l1Head,

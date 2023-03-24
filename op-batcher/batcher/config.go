@@ -1,3 +1,8 @@
+/*
+	MILKOMEDA TO OP-STACK MIGRATION NOTES
+
+Various config fields are to be checked and pruned.
+*/
 package batcher
 
 import (
@@ -15,16 +20,16 @@ import (
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
 	oppprof "github.com/ethereum-optimism/optimism/op-service/pprof"
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum-optimism/optimism/op-service/milk-txmgr"
 )
 
 type Config struct {
-	log        log.Logger
-	metr       metrics.Metricer
-	L1Client   *ethclient.Client
-	L2Client   *ethclient.Client
-	RollupNode *sources.RollupClient
-	TxManager  txmgr.TxManager
+	log             log.Logger
+	metr      		metrics.Metricer
+	L1Client        *txmgr.AlgodClient
+	L2Client        *ethclient.Client
+	RollupNode      *sources.RollupClient
+	TxManager  		txmgr.TxManager
 
 	NetworkTimeout         time.Duration
 	PollInterval           time.Duration
@@ -49,8 +54,11 @@ func (c *Config) Check() error {
 }
 
 type CLIConfig struct {
-	// L1EthRpc is the HTTP provider URL for L1.
-	L1EthRpc string
+	// L1AlgodRpc is the HTTP provider URL for L1.
+	L1AlgodRpc string
+
+	// L1AlgodToken is the authentication token for the L1 RPC provider.
+	L1AlgodToken string
 
 	// L2EthRpc is the HTTP provider URL for the L2 execution engine.
 	L2EthRpc string
@@ -126,11 +134,12 @@ func (c CLIConfig) Check() error {
 func NewConfig(ctx *cli.Context) CLIConfig {
 	return CLIConfig{
 		/* Required Flags */
-		L1EthRpc:        ctx.GlobalString(flags.L1EthRpcFlag.Name),
-		L2EthRpc:        ctx.GlobalString(flags.L2EthRpcFlag.Name),
-		RollupRpc:       ctx.GlobalString(flags.RollupRpcFlag.Name),
-		SubSafetyMargin: ctx.GlobalUint64(flags.SubSafetyMarginFlag.Name),
-		PollInterval:    ctx.GlobalDuration(flags.PollIntervalFlag.Name),
+		L1AlgodRpc:                ctx.GlobalString(flags.L1AlgodRpcFlag.Name),
+		L1AlgodToken:              ctx.GlobalString(flags.L1AlgodTokenFlag.Name),
+		L2EthRpc:                  ctx.GlobalString(flags.L2EthRpcFlag.Name),
+		RollupRpc:                 ctx.GlobalString(flags.RollupRpcFlag.Name),
+		SubSafetyMargin:           ctx.GlobalUint64(flags.SubSafetyMarginFlag.Name),
+		PollInterval:              ctx.GlobalDuration(flags.PollIntervalFlag.Name),
 
 		/* Optional Flags */
 		MaxPendingTransactions: ctx.GlobalUint64(flags.MaxPendingTransactionsFlag.Name),
