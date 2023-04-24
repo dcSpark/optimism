@@ -21,7 +21,7 @@ func TestPkSigner(t *testing.T) {
 	tx.Receiver = account.Address
 
 	signer, addr, _ := CreateSignerFn(hex.EncodeToString(account.PrivateKey))
-	if addr != account.Address.String() {
+	if addr != account.Address {
 		t.Fatalf(`Did not recover signer address (%s vs %s)`, addr, account.Address)
 	}
 

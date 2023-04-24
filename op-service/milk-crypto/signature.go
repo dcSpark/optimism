@@ -30,15 +30,15 @@ type SignedTxn struct {
 
 type SignerFn func(types.Transaction) (*SignedTxn, error)
 
-func CreateSignerFn(privateKey string) (fn SignerFn, address string, err error) {
+func CreateSignerFn(privateKey string) (fn SignerFn, address types.Address, err error) {
 	pkRaw, err := hex.DecodeString(privateKey)
 	if err != nil {
-		return nil, "", err
+		return nil, types.Address{}, err
 	}
 
 	acc, err := crypto.AccountFromPrivateKey(pkRaw)
 	if err != nil {
-		return nil, "", err
+		return nil, types.Address{}, err
 	}
 
 	var signer SignerFn
@@ -55,5 +55,5 @@ func CreateSignerFn(privateKey string) (fn SignerFn, address string, err error) 
 		return res, nil
 	}
 
-	return signer, acc.Address.String(), nil
+	return signer, acc.Address, nil
 }
