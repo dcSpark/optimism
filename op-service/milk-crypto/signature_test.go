@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/go-algorand-sdk/types"
@@ -28,7 +30,8 @@ func TestPkSigner(t *testing.T) {
 	signed, _ := signer(tx)
 
 	decoded := types.SignedTxn{}
-	msgpack.Decode(signed.RawTxn, &decoded)
+	err := msgpack.Decode(signed.RawTxn, &decoded)
+	require.Nil(t, err)
 	txRaw := bytes.Join([][]byte{[]byte("TX"), msgpack.Encode(tx)}, nil)
 	assert.True(t, ed25519.Verify(account.PublicKey, txRaw, decoded.Sig[:]))
 }

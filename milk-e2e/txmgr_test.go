@@ -13,7 +13,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/future"
 	"github.com/ethereum-optimism/optimism/op-node/testlog"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/milk-crypto"
-	txmgr "github.com/ethereum-optimism/optimism/op-service/milk-txmgr"
+	txmgr "github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/log"
 )
 

@@ -41,8 +41,7 @@ func CreateSignerFn(privateKey string) (fn SignerFn, address types.Address, err 
 		return nil, types.Address{}, err
 	}
 
-	var signer SignerFn
-	signer = func(txn types.Transaction) (*SignedTxn, error) {
+	signer := func(txn types.Transaction) (*SignedTxn, error) {
 		txid, rawTxn, err := crypto.SignTransaction(acc.PrivateKey, txn)
 		if err != nil {
 			return nil, err
