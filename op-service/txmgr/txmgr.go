@@ -51,7 +51,7 @@ type TxManager interface {
 
 	// From returns the sending address associated with the instance of the transaction manager.
 	// It is static for a single instance of a TxManager.
-	From() string
+	From() types.Address
 }
 
 // AlgoBackend is the set of methods the transaction manager uses to

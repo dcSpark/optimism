@@ -16,7 +16,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/client/v2/common/models"
 	"github.com/ethereum-optimism/optimism/op-node/algo"
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/milk-crypto"
-	"github.com/ethereum-optimism/optimism/op-service/milk-txmgr"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/log"
 )
 
