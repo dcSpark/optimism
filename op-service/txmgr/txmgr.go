@@ -147,9 +147,6 @@ type SimpleTxManager struct {
 	l       log.Logger
 	metr    metrics.TxMetricer
 
-	nonce     *uint64
-	nonceLock sync.RWMutex
-
 	pending atomic.Int64
 }
 
@@ -196,9 +193,6 @@ func (m *SimpleTxManager) Send(ctx context.Context, candidate TxCandidate) (*mod
 		m.metr.RecordPendingTx(m.pending.Add(-1))
 	}()
 	receipt, err := m.send(ctx, candidate)
-	if err != nil {
-		m.resetNonce()
-	}
 	return receipt, err
 }
 

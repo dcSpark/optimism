@@ -10,7 +10,7 @@ import (
 type TxMetricer interface {
 	RecordBumpCount(int)
 	RecordTxConfirmationLatency(int64)
-    RecordPendingTx(pending int64)
+	RecordPendingTx(pending int64)
 	TxConfirmed(*models.PendingTransactionInfoResponse)
 	TxPublished(string)
 	RPCError()
@@ -22,6 +22,7 @@ type TxMetrics struct {
 	TxBump             prometheus.Gauge
 	txFeeHistogram     prometheus.Histogram
 	LatencyConfirmedTx prometheus.Gauge
+	pendingTxs         prometheus.Gauge
 	txPublishError     *prometheus.CounterVec
 	publishEvent       metrics.Event
 	confirmEvent       metrics.EventVec
@@ -73,6 +74,12 @@ func MakeTxMetrics(ns string, factory metrics.Factory) TxMetrics {
 			Help:      "Latency of a confirmed transaction in milliseconds",
 			Subsystem: "txmgr",
 		}),
+		pendingTxs: factory.NewGauge(prometheus.GaugeOpts{
+			Namespace: ns,
+			Name:      "pending_txs",
+			Help:      "Number of transactions pending receipts",
+			Subsystem: "txmgr",
+		}),
 		txPublishError: factory.NewCounterVec(prometheus.CounterOpts{
 			Namespace: ns,
 			Name:      "tx_publish_error_count",
@@ -88,6 +95,10 @@ func MakeTxMetrics(ns string, factory metrics.Factory) TxMetrics {
 			Subsystem: "txmgr",
 		}),
 	}
+}
+
+func (t *TxMetrics) RecordPendingTx(pending int64) {
+	t.pendingTxs.Set(float64(pending))
 }
 
 // TxConfirmed records lots of information about the confirmed transaction

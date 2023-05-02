@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-batcher/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/testlog"
-	opcrypto "github.com/ethereum-optimism/optimism/op-service/milk-crypto"
 	txmgr "github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/log"
 )

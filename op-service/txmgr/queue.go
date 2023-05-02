@@ -5,7 +5,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/algorand/go-algorand-sdk/client/v2/common/models"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -13,7 +13,7 @@ type TxReceipt[T any] struct {
 	// ID can be used to identify unique tx receipts within the recept channel
 	ID T
 	// Receipt result from the transaction send
-	Receipt *types.Receipt
+	Receipt *models.PendingTransactionInfoResponse
 	// Err contains any error that occurred during the tx send
 	Err error
 }

@@ -19,6 +19,7 @@ package txmgr
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -37,7 +38,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-type sendTransactionFunc func(ctx context.Context, tx *opcrypto.SignedTxn) (txid string, err error)
+type sendTransactionFunc func(ctx context.Context, tx *opcrypto.SignedTxn) error
 
 // testHarness houses the necessary resources to test the SimpleTxManager.
 type testHarness struct {
@@ -148,7 +149,7 @@ func (b *mockBackend) SendTransaction(ctx context.Context, tx *opcrypto.SignedTx
 	if b.send == nil {
 		panic("set sender function was not set")
 	}
-	return b.send(ctx, tx)
+	return tx.Txid, b.send(ctx, tx)
 }
 
 func (b *mockBackend) AccountInformation(ctx context.Context, address string) (models.Account, error) {
@@ -176,9 +177,9 @@ func TestTxMgrConfirmAtMinFee(t *testing.T) {
 
 	// L1 MOCK CUSTOMIZATION
 	// simplest case: any send confirms on chain immediately
-	sendTx := func(ctx context.Context, tx *opcrypto.SignedTxn) (string, error) {
+	sendTx := func(ctx context.Context, tx *opcrypto.SignedTxn) error {
 		h.backend.confirm(tx.Txid)
-		return tx.Txid, nil
+		return nil
 	}
 	h.backend.setTxSender(sendTx)
 
@@ -189,7 +190,7 @@ func TestTxMgrConfirmAtMinFee(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	confirmation, err := h.mgr.sendTx(ctx, candidate)
+	confirmation, err := h.mgr.send(ctx, candidate)
 	require.Nil(t, err)
 	require.Greater(t, confirmation.ConfirmedRound, uint64(0))
 }
@@ -204,8 +205,8 @@ func TestTxMgrNeverConfirmCancel(t *testing.T) {
 
 	// L1 MOCK CUSTOMIZATION
 	// transaction won't get confirmed
-	sendTx := func(ctx context.Context, tx *opcrypto.SignedTxn) (string, error) {
-		return "", nil
+	sendTx := func(ctx context.Context, tx *opcrypto.SignedTxn) error {
+		return errors.New("err")
 	}
 	h.backend.setTxSender(sendTx)
 
