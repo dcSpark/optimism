@@ -70,16 +70,18 @@ func Main(version string, cliCtx *cli.Context) error {
 		}()
 	}
 
-	metricsCfg := cfg.MetricsConfig
-	if metricsCfg.Enabled {
-		l.Info("starting metrics server", "addr", metricsCfg.ListenAddr, "port", metricsCfg.ListenPort)
-		go func() {
-			if err := m.Serve(ctx, metricsCfg.ListenAddr, metricsCfg.ListenPort); err != nil {
-				l.Error("error starting metrics server", err)
-			}
-		}()
-		m.StartBalanceMetrics(ctx, l, batchSubmitter.L1Client, batchSubmitter.TxManager.From())
-	}
+	// TODO reenable metrics after they are migrated to Algorand
+	// registry := opmetrics.NewRegistry()
+	// metricsCfg := cfg.MetricsConfig
+	// if metricsCfg.Enabled {
+	// 	l.Info("starting metrics server", "addr", metricsCfg.ListenAddr, "port", metricsCfg.ListenPort)
+	// 	go func() {
+	// 		if err := opmetrics.ListenAndServe(ctx, registry, metricsCfg.ListenAddr, metricsCfg.ListenPort); err != nil {
+	// 			l.Error("error starting metrics server", err)
+	// 		}
+	// 	}()
+	// 	opmetrics.LaunchBalanceMetrics(ctx, l, registry, "", batchSubmitter.L1Client, batchSubmitter.From)
+	// }
 
 	rpcCfg := cfg.RPCConfig
 	server := oprpc.NewServer(

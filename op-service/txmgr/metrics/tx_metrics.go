@@ -1,30 +1,27 @@
 package metrics
 
 import (
+	"github.com/algorand/go-algorand-sdk/client/v2/common/models"
 	"github.com/ethereum-optimism/optimism/op-service/metrics"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type TxMetricer interface {
-	RecordGasBumpCount(int)
+	RecordBumpCount(int)
 	RecordTxConfirmationLatency(int64)
-	RecordNonce(uint64)
 	RecordPendingTx(pending int64)
-	TxConfirmed(*types.Receipt)
+	TxConfirmed(*models.PendingTransactionInfoResponse)
 	TxPublished(string)
 	RPCError()
 }
 
 type TxMetrics struct {
-	TxL1GasFee         prometheus.Gauge
+	TxL1Fee            prometheus.Gauge
 	txFees             prometheus.Counter
-	TxGasBump          prometheus.Gauge
+	TxBump             prometheus.Gauge
 	txFeeHistogram     prometheus.Histogram
 	LatencyConfirmedTx prometheus.Gauge
-	currentNonce       prometheus.Gauge
 	pendingTxs         prometheus.Gauge
 	txPublishError     *prometheus.CounterVec
 	publishEvent       metrics.Event
@@ -32,13 +29,12 @@ type TxMetrics struct {
 	rpcError           prometheus.Counter
 }
 
-func receiptStatusString(receipt *types.Receipt) string {
-	switch receipt.Status {
-	case types.ReceiptStatusSuccessful:
+func receiptStatusString(receipt *models.PendingTransactionInfoResponse) string {
+	if receipt != nil && receipt.PoolError == "" && receipt.ConfirmedRound > 0 {
 		return "success"
-	case types.ReceiptStatusFailed:
+	} else if receipt.PoolError != "" {
 		return "failed"
-	default:
+	} else {
 		return "unknown_status"
 	}
 }
@@ -47,41 +43,35 @@ var _ TxMetricer = (*TxMetrics)(nil)
 
 func MakeTxMetrics(ns string, factory metrics.Factory) TxMetrics {
 	return TxMetrics{
-		TxL1GasFee: factory.NewGauge(prometheus.GaugeOpts{
+		TxL1Fee: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
-			Name:      "tx_fee_gwei",
-			Help:      "L1 gas fee for transactions in GWEI",
+			Name:      "tx_fee",
+			Help:      "L1 fee for transactions in microalgo",
 			Subsystem: "txmgr",
 		}),
 		txFees: factory.NewCounter(prometheus.CounterOpts{
 			Namespace: ns,
-			Name:      "tx_fee_gwei_total",
-			Help:      "Sum of fees spent for all transactions in GWEI",
+			Name:      "tx_fee_ualgo_total",
+			Help:      "Sum of fees spent for all transactions in microalgo",
 			Subsystem: "txmgr",
 		}),
 		txFeeHistogram: factory.NewHistogram(prometheus.HistogramOpts{
 			Namespace: ns,
-			Name:      "tx_fee_histogram_gwei",
-			Help:      "Tx Fee in GWEI",
+			Name:      "tx_fee_histogram_ualgo",
+			Help:      "Tx Fee in microalgo",
 			Subsystem: "txmgr",
 			Buckets:   []float64{0.5, 1, 2, 5, 10, 20, 40, 60, 80, 100, 200, 400, 800, 1600},
 		}),
-		TxGasBump: factory.NewGauge(prometheus.GaugeOpts{
+		TxBump: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
-			Name:      "tx_gas_bump",
-			Help:      "Number of times a transaction gas needed to be bumped before it got included",
+			Name:      "tx_bump",
+			Help:      "Number of times a transaction needed to be bumped before it got included",
 			Subsystem: "txmgr",
 		}),
 		LatencyConfirmedTx: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
 			Name:      "tx_confirmed_latency_ms",
 			Help:      "Latency of a confirmed transaction in milliseconds",
-			Subsystem: "txmgr",
-		}),
-		currentNonce: factory.NewGauge(prometheus.GaugeOpts{
-			Namespace: ns,
-			Name:      "current_nonce",
-			Help:      "Current nonce of the from address",
 			Subsystem: "txmgr",
 		}),
 		pendingTxs: factory.NewGauge(prometheus.GaugeOpts{
@@ -107,26 +97,22 @@ func MakeTxMetrics(ns string, factory metrics.Factory) TxMetrics {
 	}
 }
 
-func (t *TxMetrics) RecordNonce(nonce uint64) {
-	t.currentNonce.Set(float64(nonce))
-}
-
 func (t *TxMetrics) RecordPendingTx(pending int64) {
 	t.pendingTxs.Set(float64(pending))
 }
 
 // TxConfirmed records lots of information about the confirmed transaction
-func (t *TxMetrics) TxConfirmed(receipt *types.Receipt) {
-	fee := float64(receipt.EffectiveGasPrice.Uint64() * receipt.GasUsed / params.GWei)
+func (t *TxMetrics) TxConfirmed(receipt *models.PendingTransactionInfoResponse) {
+	fee := float64(receipt.Transaction.Txn.Fee)
 	t.confirmEvent.Record(receiptStatusString(receipt))
-	t.TxL1GasFee.Set(fee)
+	t.TxL1Fee.Set(fee)
 	t.txFees.Add(fee)
 	t.txFeeHistogram.Observe(fee)
 
 }
 
-func (t *TxMetrics) RecordGasBumpCount(times int) {
-	t.TxGasBump.Set(float64(times))
+func (t *TxMetrics) RecordBumpCount(times int) {
+	t.TxBump.Set(float64(times))
 }
 
 func (t *TxMetrics) RecordTxConfirmationLatency(latency int64) {
