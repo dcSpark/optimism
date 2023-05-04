@@ -8,6 +8,78 @@
   <br />
 </div>
 
+## Milkomeda to OP stack migration WIP notes
+
+### What?
+
+[Here's](https://github.com/dcSpark/milkomeda-rollup/) Milkomeda the EVM rollup over Algorand. We want to create Milkomeda rollup v2 by forking the codebase of the Optimism rollup.
+
+### Why?
+
+The Milkomeda rollup is unique in that it sits atop of Algorand. For any other rollup features unrelated to the fact that we have Algorand as the Data Availability layer we're better off copying them from existing mature rollup implementations.
+
+Optimism is one of the biggest existing rollups and lately they decided to direct their codebase development into a modular rollup building framework called the OP stack. The intent is exactly to make it possible to build a rollup from existing blocks and only need to provide your unique stuff.
+
+That's theory but real life is as always a bit behind and much more messy. As of now Optimism docs (rightly) [mention](https://stack.optimism.io/docs/build/data-avail/#) that hacking into the DA layer is a messy business the codebase is not expecting, e.g. changes need to be done at lots of places and it really doesn't feel "modular". When picking up this development always keep an eye on what's been done upstream in the meantime.
+
+### Goals a bit more concrete
+
+By reusing Optimism code in the derivation layer and elsewhere we should be able to increase performance and reliability of Milkomeda rollup v1, however, that's not a pressing issue until it has more users.
+
+The main first goal is to be able to plug in a settlement layer, namely Optimistic fault proofs. Milkomeda rollup v1 doesn't have any succint proofs of its current state and thus doesn't enable light clients. Users need to replay all L2 txns from DA layer to get trustless state view.
+
+A settlement layer needs massive support on L1 and we need to rebuild this part completely as Algorand is very different from Ethereum. That's why we're also in touch with Algorand inc. for their assistance.
+
+### Optimism architecture as related to our DA swap
+
+Note that we're almost exclusively interested in the `op-*` folders of this repo. They contain the code for the  [Bedrock release](https://community.optimism.io/docs/developers/bedrock/explainer/#) of Optimism. Bedrock is the name of the first ever official release of the OP Stack. The other code is and will be getting removed.
+
+#### Data Availability layer
+
+DA layer is unfortunately not materialized in a modular way in the codebase. L1 interactions happen from a number of places (`op-batcher` which sends L2 data to L1, `op-proposer` which sends _special_ L2 data to L1 -- the state roots, `op-node` which derives L2 chain from data found on L1, `op-program` which enables fault proof resolution on L1...) and currently it pretty hardcoded everywhere that L1 is Ethereum. That's the major reason why this migration is not smooth.
+
+#### Batcher (`op-batcher`)
+
+Makes L2 blocks available on L1. We need it to put data on Algorand instead of Ethereum -- first into Algorand transaction notes (which is what's currently done on Milkomeda rollup v1), after we have a settlement layer we can start putting it into Algorand boxes and not keeping all data forever. It talks to both the sequencer node (`op-node`) and the execution engine (`op-geth`) which makes it a bit more difficult to test in isolation.
+
+#### Derivation layer (`op-node`)
+
+[The rollup node](https://github.com/ethereum-optimism/optimistic-specs/blob/main/specs/rollup-node.md) is the component responsible for deriving the L2 chain from data found on L1. Found L2 blocks are passed to the execution engine. We need to be reading the raw data off Algorand instead of Ethereum.
+
+#### Execution engine
+
+[The execution engine](https://github.com/ethereum-optimism/optimistic-specs/blob/main/specs/exec-engine.md) for Optimism is `op-geth`, living in a separate [repo](https://github.com/ethereum-optimism/op-geth). It's geth with few changes on top mostly accounting for a few Optimism specific chain derivation rules.
+
+In the past we have tried plugging op-geth into Milkomeda rollup v1 [here](https://github.com/dcSpark/milkomeda-rollup/pull/108).
+
+#### L1 - L2 bridging (`packages/contracts-bedrock/contracts/{L1,L2}`)
+
+Optimism's bridging heavily depends on L1 smart contracts, these are of course Ethereum smart contracts and as such we can't use them on Algorand.
+
+It will be simplest to continue using the [Milkomeda bridge](https://github.com/dcSpark/milkomeda-validator/) which we already use for bridging between L1==Algorand and the A1 Milkomeda rollup. Long-term we want to get rid of validator operated bridges though.
+
+Note that L1->L2 transactions have a special role in the derivation layer (`op-node`) and we'll need to switch these expectations off if we don't use Optimism's bridging.
+
+#### Settlement layer (`op-proposer`, `op-program`)
+
+Optimism intends to use the optimistic [Cannon](https://medium.com/ethereum-optimism/cannon-cannon-cannon-introducing-cannon-4ce0d9245a03) fault proof system for its settlement layer. As of now (May 23) the goal is to release Bedrock (which does _not_ have Cannon as its settlement layer) and make sure everything's peachy and then do Cannon in the next milestone. Cannon fault proof system proof of concept / prototype lives in a [separate repo](https://github.com/ethereum-optimism/cannon), but incursions into the main monorepo are starting to happen in `op-program`.
+
+[The proposer](https://github.com/ethereum-optimism/optimistic-specs/blob/main/specs/proposals.md) (`op-proposer`) is a service which publishes L2 state roots to L1, whatever the proof system. Unlike in Milkomeda rollup v1, state root posting is decoupled from batch posting. In Optimism the state roots are posted to a special Ethereum contract, here we of course need to make the roots available on Algorand and later be read from Algorand.
+
+### Progress status
+
+Search for `MILKOMEDA TO OP-STACK MIGRATION NOTES` to find detailed technical comments on the work in progress, as well as comments and TODOs in code.
+
+Progress so far has been done in the following components:
+
+* `milk-e2e` e2e tests to sanity check development over a real Algorand network. [Details.](https://github.com/dcSpark/optimism/blob/6810e6449d435330e4ef96320e3d2abe4998004b/milk-e2e/setup.go#L1-L27)
+* `op-service` houses L1 signing and transaction manager compoments. Should be ready to get used by now.
+* `op-batcher` the full batcher component, in progress
+
+Original upstream Optimism README follows.
+
+---
+
 ## What is Optimism?
 
 Optimism is a low-cost and lightning-fast Ethereum L2 blockchain, **but it's also so much more than that**.
